@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
 
 import argparse
+import functools
+import json
 import pathlib
 
 import ncprivacy
 import utils
 
+json_dumps = functools.partial(json.dumps, indent=2)
+
 
 def pprint_table(rows, fields):
     if not rows:
         return
+    assert len(rows[0]) == len(fields)
     align_vals = [
         max(len(max(column_vals, key=len)), len(fields[idx]))
         for idx, column_vals in
@@ -27,35 +32,79 @@ def pprint_table(rows, fields):
         )))
 
 
-@utils.with_db_connection
-def ls_apps(*args, **kw):
-    pprint_table(tuple(ncprivacy.iter_apps(*args, **kw)),
-                 ncprivacy.App._fields)
+def print_rm(result, as_json):
+    print(json_dumps(result) if as_json else f"Deleted: {result}")
 
 
-@utils.with_db_connection
-def rm_apps(*args, **kw):
-    print(f"Deleted: {ncprivacy.rm_apps(*args, **kw)}")
+def print_count(result, as_json):
+    print(json_dumps(result) if as_json else result)
 
 
-@utils.with_db_connection
-def ls_records(*args, **kw):
-    for num, record in enumerate(ncprivacy.iter_records(*args, **kw), start=1):
-        if num == 1:
-            print()
-        print(f"#{num}")
-        print(f"Delivered date: {record.delivered_date_}")
+def iter_records(*args, **kw):
+    for record in ncprivacy.iter_records(*args, **kw):
+        result = record._asdict()
+        del result['data']
         data = record.data_
-        print(f"Application: {data.get('app')}")
         req = data.get('req', {})
-        print(f"Title: {req.get('titl')}")
-        print(f"Subtitle: {req.get('subt')}")
-        print(f"Body: {req.get('body')}", end='\n\n')
+        result.update(
+            uuid=str(record.uuid_),
+            app=data.get('app'),
+            titl=req.get('titl'),
+            subt=req.get('subt'),
+            body=req.get('body'),
+        )
+        yield result
 
 
 @utils.with_db_connection
-def rm_privacy_records(*args, **kw):
-    print(f"Deleted: {ncprivacy.rm_privacy_records(*args, **kw)}")
+def ls_apps(as_json, *args, **kw):
+    apps_gen = ncprivacy.iter_apps(*args, **kw)
+    (
+        print(json_dumps([app._asdict() for app in apps_gen]))
+        if as_json else
+        pprint_table(tuple(apps_gen), ncprivacy.App._fields)
+    )
+
+
+@utils.with_db_connection
+def rm_apps(as_json, *args, **kw):
+    print_rm(ncprivacy.rm_apps(*args, **kw), as_json)
+
+
+@utils.with_db_connection
+def count_apps(as_json, *args, **kw):
+    print_count(ncprivacy.count_apps(*args, **kw), as_json)
+
+
+@utils.with_db_connection
+def ls_records(as_json, *args, **kw):
+    records_gen = iter_records(*args, **kw)
+    if as_json:
+        print(json_dumps(tuple(records_gen)))
+    else:
+        for num, record in enumerate(records_gen, start=1):
+            if num == 1:
+                print()
+            print(f"#{num}")
+            date = record['delivered_date']
+            print("Delivered date: {date}".format(
+                date=date if date is None else
+                utils.convert_osx_ts_to_dt(date))
+            )
+            print(f"Application: {record['app']}")
+            print(f"Title: {record['titl']}")
+            print(f"Subtitle: {record['subt']}")
+            print(f"Body: {record['body']}", end='\n\n')
+
+
+@utils.with_db_connection
+def rm_privacy_records(as_json, *args, **kw):
+    print_rm(ncprivacy.rm_privacy_records(*args, **kw), as_json)
+
+
+@utils.with_db_connection
+def count_privacy_records(as_json, *args, **kw):
+    print_count(ncprivacy.count_privacy_records(*args, **kw), as_json)
 
 
 def parse_args(*args, **kw):
@@ -80,13 +129,27 @@ def parse_args(*args, **kw):
         action='append',
         metavar='IDENTIFIER',
         default=[],
-        help="Append identifier for filter query",
+        help="Filter by identifiers",
+    )
+    group.add_argument(
+        '-e',
+        '--excludes',
+        action='append',
+        metavar='EXPR',
+        default=[],
+        help="Exclude by identifiers (SQL LIKE expr)",
     )
     group.add_argument(
         '--not-skip-private',
         action='store_false',
         dest='skip_private',
         help="Do not skip private identifiers (startswith underscore)",
+    )
+    group.add_argument(
+        '--json',
+        action='store_true',
+        dest='as_json',
+        help="JSON output",
     )
     subparsers = parser.add_subparsers(required=True, dest='command')
     app_tname = ncprivacy.App._table_name
@@ -100,15 +163,23 @@ def parse_args(*args, **kw):
              f"trigger will cleanup other tables related to them)",
     ).set_defaults(fn=rm_apps)
     subparsers.add_parser(
+        'count-apps',
+        help=f"Count app records from table <{app_tname}>",
+    ).set_defaults(fn=count_apps)
+    subparsers.add_parser(
         'ls-records',
         help=f"List notification records from table "
              f"<{ncprivacy.Record._table_name}>",
     ).set_defaults(fn=ls_records)
+    nc_privacy_tables = ', '.join(ncprivacy.NC_PRIVACY_TABLES)
     subparsers.add_parser(
         'rm-privacy-records',
-        help=f"Delete records from tables "
-             f"<{', '.join(ncprivacy.NC_PRIVACY_TABLES)}>",
+        help=f"Delete records from tables <{nc_privacy_tables}>",
     ).set_defaults(fn=rm_privacy_records)
+    subparsers.add_parser(
+        'count-privacy-records',
+        help=f"Count records from tables <{nc_privacy_tables}>",
+    ).set_defaults(fn=count_privacy_records)
     return parser.parse_args(*args, **kw)
 
 
@@ -116,6 +187,9 @@ def main(argv=None):
     nsargs = parse_args(argv)
     if nsargs.db_path is None:
         nsargs.db_path = ncprivacy.get_db_path()
+    if nsargs.skip_private:
+        nsargs.excludes.append(ncprivacy.LIKE_PRIVATE)
+    del nsargs.skip_private
     fn = nsargs.fn
     del nsargs.fn
     del nsargs.command  # issue29298
