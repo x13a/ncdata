@@ -32,9 +32,9 @@ class NCPrivacyTestCase(unittest.TestCase):
 
     def test_apps(self):
         cur = self.cur
-        cp = ncprivacy.count_apps(cur)
-        self.assertEqual(len(tuple(ncprivacy.iter_apps(cur))), cp)
-        self.assertEqual(cp, ncprivacy.rm_apps(cur))
+        ca = ncprivacy.count_apps(cur)
+        self.assertEqual(len(tuple(ncprivacy.iter_apps(cur))), ca)
+        self.assertEqual(ca, ncprivacy.rm_apps(cur))
 
     def test_records(self):
         cur = self.cur
