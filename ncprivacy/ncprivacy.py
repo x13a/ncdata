@@ -4,7 +4,7 @@ MacOS Notification Center Privacy
 
 from __future__ import annotations
 
-__version__ = '0.0.2'
+__version__ = '0.0.3'
 
 import functools
 import itertools
@@ -87,15 +87,14 @@ def get_db_path():
     return result
 
 
-def _sql_in_vals(fname, vals):
-    return f"{fname} IN ({', '.join(itertools.repeat('?', len(vals)))})"
-
-
 def _make_filter(fname, identifiers, excludes):
     sql = ""
     where_exprs = []
     if identifiers:
-        where_exprs.append(_sql_in_vals(fname, identifiers))
+        where_exprs.append("{fname} IN ({vals_in})".format(
+            fname=fname,
+            vals_in=', '.join(itertools.repeat('?', len(identifiers))),
+        ))
     if excludes:
         where_exprs.append(' AND '.join(itertools.repeat(
             f"NOT {fname} LIKE ? ESCAPE '\\'",
@@ -103,7 +102,7 @@ def _make_filter(fname, identifiers, excludes):
         )))
     if where_exprs:
         sql += f" WHERE {' AND '.join(where_exprs)}"
-    return sql, list(identifiers) + list(excludes)
+    return sql, [*identifiers, *excludes]
 
 
 def iter_apps(cursor, *, identifiers=(), excludes=(LIKE_PRIVATE,)):
@@ -136,7 +135,10 @@ def iter_records(cursor, *, identifiers=(), excludes=(LIKE_PRIVATE,)):
     if identifiers or excludes:
         app_tname = App._table_name
         filter_sql, params = _make_filter(
-            f'{app_tname}.{F_IDENTIFIER}', identifiers, excludes)
+            f'{app_tname}.{F_IDENTIFIER}',
+            identifiers,
+            excludes,
+        )
         sql += f"""
         JOIN {app_tname} ON {record_tname}.{F_APP_ID} = {app_tname}.{F_APP_ID}
         {filter_sql}
@@ -145,38 +147,42 @@ def iter_records(cursor, *, identifiers=(), excludes=(LIKE_PRIVATE,)):
 
 
 def rm_privacy_records(cursor, *, identifiers=(), excludes=(LIKE_PRIVATE,)):
+    if not NC_PRIVACY_TABLES:
+        return 0
     sql = "DELETE FROM {table}"
-    app_ids = []
     if identifiers or excludes:
-        app_ids = [
-            app.app_id for app in
-            iter_apps(
-                cursor,
-                identifiers=identifiers,
-                excludes=excludes,
-            )
-        ]
-        sql += f" WHERE {_sql_in_vals(F_APP_ID, app_ids)}"
-    return sum(cursor.execute(sql.format(table=table), app_ids).rowcount for
+        sql += " WHERE {f_app_id} IN ({app_ids_in})".format(
+            f_app_id=F_APP_ID,
+            app_ids_in=', '.join(
+                str(app.app_id) for app in
+                iter_apps(
+                    cursor,
+                    identifiers=identifiers,
+                    excludes=excludes,
+                )
+            ),
+        )
+    return sum(cursor.execute(sql.format(table=table)).rowcount for
                table in NC_PRIVACY_TABLES)
 
 
 def count_privacy_records(cursor, *, identifiers=(), excludes=(LIKE_PRIVATE,)):
+    if not NC_PRIVACY_TABLES:
+        return 0
     sql = "SELECT ({query}) AS result"
-    app_ids = [
-        app.app_id for app in
+    has_filter = bool(identifiers or excludes)
+    app_ids_in = ', '.join(
+        str(app.app_id) for app in
         iter_apps(
             cursor,
             identifiers=identifiers,
             excludes=excludes,
         )
-    ] if identifiers or excludes else []
-    has_app_ids = bool(app_ids)
+    ) if has_filter else ''
     queries = []
     for table in NC_PRIVACY_TABLES:
         sub_sql = f"SELECT COUNT(*) FROM {table}"
-        if has_app_ids:
-            sub_sql += f" WHERE {_sql_in_vals(f'{table}.{F_APP_ID}', app_ids)}"
+        if has_filter:
+            sub_sql += f" WHERE {table}.{F_APP_ID} IN ({app_ids_in})"
         queries.append(f"({sub_sql})")
-    return cursor.execute(sql.format(query=' + '.join(queries)),
-                          app_ids * len(queries)).fetchone()[0]
+    return cursor.execute(sql.format(query=' + '.join(queries))).fetchone()[0]

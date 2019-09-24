@@ -189,10 +189,13 @@ def main(argv=None):
         nsargs.db_path = ncprivacy.get_db_path()
     if nsargs.skip_private:
         nsargs.excludes.append(ncprivacy.LIKE_PRIVATE)
-    del nsargs.skip_private
     fn = nsargs.fn
-    del nsargs.fn
-    del nsargs.command  # issue29298
+    for arg in (
+        'skip_private',
+        'fn',
+        'command',  # issue29298
+    ):
+        delattr(nsargs, arg)
     fn(**vars(nsargs))
 
 
