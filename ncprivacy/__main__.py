@@ -40,20 +40,13 @@ def print_count(result, as_json):
     print(json_dumps(result) if as_json else result)
 
 
-def iter_records(*args, **kw):
-    for record in ncprivacy.iter_records(*args, **kw):
-        result = record._asdict()
-        del result['data']
-        data = record.data_
-        req = data.get('req', {})
-        result.update(
-            uuid=str(record.uuid_),
-            app=data.get('app'),
-            titl=req.get('titl'),
-            subt=req.get('subt'),
-            body=req.get('body'),
-        )
-        yield result
+def record_to_json(record):
+    result = record._asdict()
+    result.update(
+        uuid=str(record.uuid_),
+        data=record.get_useful_data()._asdict(),
+    )
+    return result
 
 
 @utils.with_db_connection
@@ -78,23 +71,20 @@ def count_apps(as_json, *args, **kw):
 
 @utils.with_db_connection
 def ls_records(as_json, *args, **kw):
-    records_gen = iter_records(*args, **kw)
+    records_gen = ncprivacy.iter_records(*args, **kw)
     if as_json:
-        print(json_dumps(tuple(records_gen)))
+        print(json_dumps(tuple(map(record_to_json, records_gen))))
     else:
         for num, record in enumerate(records_gen, start=1):
             if num == 1:
                 print()
             print(f"#{num}")
-            date = record['delivered_date']
-            print("Delivered date: {date}".format(
-                date=date if date is None else
-                utils.convert_osx_ts_to_dt(date))
-            )
-            print(f"Application: {record['app']}")
-            print(f"Title: {record['titl']}")
-            print(f"Subtitle: {record['subt']}")
-            print(f"Body: {record['body']}", end='\n\n')
+            print(f"Delivered date: {record.delivered_date_}")
+            data = record.get_useful_data()
+            print(f"Application: {data.app}")
+            print(f"Title: {data.titl}")
+            print(f"Subtitle: {data.subt}")
+            print(f"Body: {data.body}", end='\n\n')
 
 
 @utils.with_db_connection
@@ -127,9 +117,9 @@ def parse_args(*args, **kw):
         '-i',
         '--identifiers',
         action='append',
-        metavar='IDENTIFIER',
+        metavar='EXPR',
         default=[],
-        help="Filter by identifiers",
+        help="Filter by identifiers (SQL GLOB expr)",
     )
     group.add_argument(
         '-e',
@@ -137,7 +127,7 @@ def parse_args(*args, **kw):
         action='append',
         metavar='EXPR',
         default=[],
-        help="Exclude by identifiers (SQL LIKE expr)",
+        help="Exclude by identifiers (SQL GLOB expr)",
     )
     group.add_argument(
         '--not-skip-private',
@@ -188,7 +178,7 @@ def main(argv=None):
     if nsargs.db_path is None:
         nsargs.db_path = ncprivacy.get_db_path()
     if nsargs.skip_private:
-        nsargs.excludes.append(ncprivacy.LIKE_PRIVATE)
+        nsargs.excludes.append(ncprivacy.GLOB_PRIVATE)
     fn = nsargs.fn
     for arg in (
         'skip_private',
