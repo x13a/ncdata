@@ -4,8 +4,9 @@ MacOS Notification Center Privacy
 
 from __future__ import annotations
 
-__version__ = '0.0.4'
+__version__ = '0.0.5'
 
+import functools
 import itertools
 import pathlib
 import plistlib
@@ -93,6 +94,15 @@ def get_db_path():
     ).resolve(strict=True)
 
 
+def _precursor(fn):
+    @functools.wraps(fn)
+    def _wrapper(cursor, *args, **kw):
+        if cursor is None:
+            return utils.with_db_connection(fn)(get_db_path(), *args, **kw)
+        return fn(cursor, *args, **kw)
+    return _wrapper
+
+
 def _make_filter(fname, identifiers, excludes):
     sql = ""
     where_exprs = []
@@ -111,6 +121,7 @@ def _make_filter(fname, identifiers, excludes):
     return sql, (*identifiers, *excludes)
 
 
+@_precursor
 def iter_apps(cursor, *, identifiers=(), excludes=(GLOB_PRIVATE,)):
     filter_sql, params = _make_filter(_F_IDENTIFIER, identifiers, excludes)
     yield from map(App._make, cursor.execute(f"""
@@ -118,12 +129,14 @@ def iter_apps(cursor, *, identifiers=(), excludes=(GLOB_PRIVATE,)):
         """, params))
 
 
+@_precursor
 def rm_apps(cursor, *, identifiers=(), excludes=(GLOB_PRIVATE,)):
     filter_sql, params = _make_filter(_F_IDENTIFIER, identifiers, excludes)
     return cursor.execute(f"DELETE FROM {App._table_name} {filter_sql}",
                           params).rowcount
 
 
+@_precursor
 def count_apps(cursor, *, identifiers=(), excludes=(GLOB_PRIVATE,)):
     filter_sql, params = _make_filter(_F_IDENTIFIER, identifiers, excludes)
     return cursor.execute(f"""
@@ -131,6 +144,7 @@ def count_apps(cursor, *, identifiers=(), excludes=(GLOB_PRIVATE,)):
         """, params).fetchone()[0]
 
 
+@_precursor
 def iter_records(cursor, *, identifiers=(), excludes=(GLOB_PRIVATE,)):
     record_tname = Record._table_name
     sql = f"""
@@ -153,6 +167,7 @@ def iter_records(cursor, *, identifiers=(), excludes=(GLOB_PRIVATE,)):
     yield from map(Record._make, cursor.execute(sql, params))
 
 
+@_precursor
 def rm_privacy_records(cursor, *, identifiers=(), excludes=(GLOB_PRIVATE,)):
     if not NC_PRIVACY_TABLES:
         return 0
@@ -173,6 +188,7 @@ def rm_privacy_records(cursor, *, identifiers=(), excludes=(GLOB_PRIVATE,)):
                table in NC_PRIVACY_TABLES)
 
 
+@_precursor
 def count_privacy_records(cursor, *, identifiers=(), excludes=(GLOB_PRIVATE,)):
     if not NC_PRIVACY_TABLES:
         return 0

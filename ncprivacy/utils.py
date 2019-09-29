@@ -2,6 +2,7 @@ import contextlib
 import datetime
 import functools
 import sqlite3
+import types
 
 OSX_TS_UNIX_DIFF = 978307200
 
@@ -13,7 +14,10 @@ def with_db_connection(fn):
             f'{db_path.resolve(strict=True).as_uri()}?mode=rw',
             uri=True,
         )) as conn, conn, contextlib.closing(conn.cursor()) as cur:
-            return fn(cursor=cur, *args, **kw)
+            result = fn(cursor=cur, *args, **kw)
+            if isinstance(result, types.GeneratorType):
+                return tuple(result)
+            return result
     return _wrapper
 
 
