@@ -1,12 +1,13 @@
-#!/usr/bin/env python3
-
 import os
 import shutil
 import sqlite3
 import tempfile
 import unittest
 
-import ncprivacy
+from . import (
+    __name__ as lib_name,
+    ncprivacy,
+)
 
 
 class NCPrivacyTestCase(unittest.TestCase):
@@ -16,8 +17,7 @@ class NCPrivacyTestCase(unittest.TestCase):
         cls.db_path = ncprivacy.get_db_path()
 
     def setUp(self):
-        tmp_fd, tmp_path = tempfile.mkstemp(
-            prefix=f'{ncprivacy.__name__}.')
+        tmp_fd, tmp_path = tempfile.mkstemp(prefix=f'{lib_name}.')
         os.close(tmp_fd)
         self.tmp_path = tmp_path
         shutil.copy2(self.db_path, tmp_path)

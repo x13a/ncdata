@@ -1,10 +1,4 @@
-"""
-MacOS Notification Center Privacy
-"""
-
 from __future__ import annotations
-
-__version__ = '0.0.5'
 
 import functools
 import itertools
@@ -17,7 +11,7 @@ from typing import (
     Optional,
 )
 
-import utils
+from . import utils
 
 GLOB_PRIVATE = '_*'
 _F_IDENTIFIER = 'identifier'

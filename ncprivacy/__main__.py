@@ -1,12 +1,15 @@
-#!/usr/bin/env python3
-
 import argparse
 import functools
 import json
 import pathlib
 
-import ncprivacy
-import utils
+from . import (
+    __doc__ as lib_doc,
+    __name__ as lib_name,
+    __version__ as lib_version,
+    ncprivacy,
+    utils,
+)
 
 json_dumps = functools.partial(json.dumps, indent=2)
 
@@ -99,13 +102,13 @@ def count_privacy_records(as_json, *args, **kw):
 
 def parse_args(*args, **kw):
     parser = argparse.ArgumentParser(
-        prog=ncprivacy.__name__,
-        description=ncprivacy.__doc__,
+        prog=lib_name,
+        description=lib_doc,
     )
     parser.add_argument(
         '--version',
         action='version',
-        version=ncprivacy.__version__,
+        version=lib_version,
     )
     group = parser.add_argument_group('common arguments')
     group.add_argument(
