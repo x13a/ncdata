@@ -22,7 +22,7 @@ install:
 
 uninstall:
 	rm -f $(TARGET)
-	rm -rf $(VENV_PREFIX)
+	rm -rf $(VENV_PREFIX)/
 
 test:
 	python3 -m unittest
