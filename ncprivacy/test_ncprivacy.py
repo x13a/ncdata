@@ -1,13 +1,7 @@
-import os
-import shutil
 import sqlite3
-import tempfile
 import unittest
 
-from . import (
-    __name__ as lib_name,
-    ncprivacy,
-)
+from ncprivacy import ncprivacy  # pycharm not main test fails with . import
 
 
 class NCPrivacyTestCase(unittest.TestCase):
@@ -17,28 +11,23 @@ class NCPrivacyTestCase(unittest.TestCase):
         cls.db_path = ncprivacy.get_db_path()
 
     def setUp(self):
-        tmp_fd, tmp_path = tempfile.mkstemp(prefix=f'{lib_name}.')
-        os.close(tmp_fd)
-        self.tmp_path = tmp_path
-        shutil.copy2(self.db_path, tmp_path)
-        conn = sqlite3.connect(tmp_path)
-        self.cur = conn.cursor()
-        self.conn = conn
+        source = sqlite3.connect(self.db_path)
+        dest = sqlite3.connect(':memory:')
+        source.backup(dest)
+        source.close()
+        self.cur = dest.cursor()
+        self.conn = dest
 
     def tearDown(self):
         self.cur.close()
         self.conn.close()
-        os.unlink(self.tmp_path)
 
     def test_apps(self):
-        cur = self.cur
-        ca = ncprivacy.count_apps(cur)
-        self.assertEqual(len(tuple(ncprivacy.iter_apps(cur))), ca)
-        self.assertEqual(ca, ncprivacy.rm_apps(cur))
+        tuple(ncprivacy.iter_apps(self.cur))
 
     def test_records(self):
         cur = self.cur
-        cpr = ncprivacy.count_privacy_records(cur, identifiers=('_',))
+        cpr = ncprivacy.count_privacy_records(cur, include=('_',))
         self.assertEqual(cpr, 0)
         cpr2 = ncprivacy.count_privacy_records(cur)
         self.assertLessEqual(len(tuple(ncprivacy.iter_records(cur))), cpr2)

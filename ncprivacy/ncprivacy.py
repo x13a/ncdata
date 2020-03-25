@@ -97,61 +97,46 @@ def _precursor(fn):
     return _wrapper
 
 
-def _make_filter(fname, identifiers, excludes):
+def _make_filter(fname, include, exclude):
     sql = ""
     where_exprs = []
-    if identifiers:
+    if include:
         where_exprs.append(' AND '.join(itertools.repeat(
             f"{fname} GLOB ?",
-            len(identifiers),
+            len(include),
         )))
-    if excludes:
+    if exclude:
         where_exprs.append(' AND '.join(itertools.repeat(
             f"{fname} NOT GLOB ?",
-            len(excludes),
+            len(exclude),
         )))
     if where_exprs:
         sql += f" WHERE {' AND '.join(where_exprs)}"
-    return sql, (*identifiers, *excludes)
+    return sql, (*include, *exclude)
 
 
 @_precursor
-def iter_apps(cursor, *, identifiers=(), excludes=(GLOB_PRIVATE,)):
-    filter_sql, params = _make_filter(_F_IDENTIFIER, identifiers, excludes)
+def iter_apps(cursor, *, include=(), exclude=(GLOB_PRIVATE,)):
+    filter_sql, params = _make_filter(_F_IDENTIFIER, include, exclude)
     yield from map(App._make, cursor.execute(f"""
         SELECT {', '.join(App._fields)} FROM {App._table_name} {filter_sql}
         """, params))
 
 
 @_precursor
-def rm_apps(cursor, *, identifiers=(), excludes=(GLOB_PRIVATE,)):
-    filter_sql, params = _make_filter(_F_IDENTIFIER, identifiers, excludes)
-    return cursor.execute(f"DELETE FROM {App._table_name} {filter_sql}",
-                          params).rowcount
-
-
-@_precursor
-def count_apps(cursor, *, identifiers=(), excludes=(GLOB_PRIVATE,)):
-    filter_sql, params = _make_filter(_F_IDENTIFIER, identifiers, excludes)
-    return cursor.execute(f"""
-        SELECT COUNT(*) FROM {App._table_name} {filter_sql}
-        """, params).fetchone()[0]
-
-
-@_precursor
-def iter_records(cursor, *, identifiers=(), excludes=(GLOB_PRIVATE,)):
+def iter_records(cursor, *, include=(), exclude=(GLOB_PRIVATE,)):
     record_tname = Record._table_name
     sql = f"""
     SELECT {', '.join(f'{record_tname}.{field}' for field in Record._fields)} 
     FROM {record_tname}
     """
     params = ()
-    if identifiers or excludes:
+    if include or exclude:
         app_tname = App._table_name
         filter_sql, params = _make_filter(
             f'{app_tname}.{_F_IDENTIFIER}',
-            identifiers,
-            excludes,
+            include,
+            exclude,
         )
         sql += f"""
         JOIN {app_tname} 
@@ -162,19 +147,19 @@ def iter_records(cursor, *, identifiers=(), excludes=(GLOB_PRIVATE,)):
 
 
 @_precursor
-def rm_privacy_records(cursor, *, identifiers=(), excludes=(GLOB_PRIVATE,)):
+def rm_privacy_records(cursor, *, include=(), exclude=(GLOB_PRIVATE,)):
     if not NC_PRIVACY_TABLES:
         return 0
     sql = "DELETE FROM {table}"
-    if identifiers or excludes:
+    if include or exclude:
         sql += " WHERE {f_app_id} IN ({app_ids_in})".format(
             f_app_id=_F_APP_ID,
             app_ids_in=', '.join(
                 str(app.app_id) for app in
                 iter_apps(
                     cursor,
-                    identifiers=identifiers,
-                    excludes=excludes,
+                    include=include,
+                    exclude=exclude,
                 )
             ),
         )
@@ -183,17 +168,17 @@ def rm_privacy_records(cursor, *, identifiers=(), excludes=(GLOB_PRIVATE,)):
 
 
 @_precursor
-def count_privacy_records(cursor, *, identifiers=(), excludes=(GLOB_PRIVATE,)):
+def count_privacy_records(cursor, *, include=(), exclude=(GLOB_PRIVATE,)):
     if not NC_PRIVACY_TABLES:
         return 0
     sql = "SELECT ({query}) AS result"
-    has_filter = bool(identifiers or excludes)
+    has_filter = bool(include or exclude)
     app_ids_in = ', '.join(
         str(app.app_id) for app in
         iter_apps(
             cursor,
-            identifiers=identifiers,
-            excludes=excludes,
+            include=include,
+            exclude=exclude,
         )
     ) if has_filter else ''
     queries = []
