@@ -1,6 +1,6 @@
 # ncprivacy
 
-View saved macOS notifications and.. remove them all.
+View saved macOS notifications and.. remove them.
 
 ## Installation
 ```sh
