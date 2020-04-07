@@ -1,5 +1,6 @@
 import argparse
 import functools
+import itertools
 import json
 import pathlib
 
@@ -14,25 +15,41 @@ from . import (
 json_dumps = functools.partial(json.dumps, indent=2)
 
 
-def pprint_table(rows, fields):
+def pprint_table(rows, *, fields=()):
+    rows = tuple(rows)
     if not rows:
         return
-    assert len(rows[0]) == len(fields)
-    align_vals = [
-        max(len(max(column_vals, key=len)), len(fields[idx]))
-        for idx, column_vals in
-        enumerate(zip(*(map(str, row) for row in rows)))
+    width_rows = rows
+    if fields:
+        assert len(fields) == len(rows[0])
+        width_rows = itertools.chain([fields], width_rows)
+    widths = [
+        max(map(len, column)) for column in
+        zip(*(map(str, row) for row in width_rows))
     ]
-    delimiter = ' | '
-    line_tmpl = f'{delimiter}{{line}}{delimiter}'
-    print(line_tmpl.format(line=delimiter.join(
-        f'{field.upper():{align_vals[idx]}}' for
-        idx, field in enumerate(fields)
-    )))
-    for row in rows:
-        print(line_tmpl.format(line=delimiter.join(
-            f'{val:{align_vals[idx]}}' for idx, val in enumerate(row)
+    sep_tmpl = ' {} '
+    column_sep = sep_tmpl.format('|')
+    delimiter_sep = sep_tmpl.format('+')
+    delimiter = '{delimiter_sep}{row}{delimiter_sep}'.format(
+        row=delimiter_sep.join(
+            '-' * widths[idx] for idx in range(len(fields or rows[0]))
+        ),
+        delimiter_sep=delimiter_sep,
+    )
+    row_tmpl = f'{column_sep}{{row}}{column_sep}'
+    print(delimiter)
+    if fields:
+        print(row_tmpl.format(row=column_sep.join(
+            f'{field.upper():{widths[idx]}}'
+            for idx, field in enumerate(fields)
         )))
+        if len(rows) > 1:
+            print(delimiter)
+    for row in rows:
+        print(row_tmpl.format(row=column_sep.join(
+            f'{val:{widths[idx]}}' for idx, val in enumerate(row)
+        )))
+    print(delimiter)
 
 
 def record_to_dict(record):
@@ -50,7 +67,7 @@ def ls_apps(as_json, *args, **kw):
     (
         print(json_dumps([app._asdict() for app in apps_gen]))
         if as_json else
-        pprint_table(tuple(apps_gen), ncprivacy.App._fields)
+        pprint_table(apps_gen, fields=ncprivacy.App._fields)
     )
 
 
@@ -60,16 +77,21 @@ def ls_records(as_json, *args, **kw):
     if as_json:
         print(json_dumps(tuple(map(record_to_dict, records_gen))))
     else:
-        for num, record in enumerate(records_gen, start=1):
-            if num == 1:
-                print()
+        first_rec = next(records_gen, None)
+        if first_rec is None:
+            return
+        print()
+        for num, record in enumerate(
+            itertools.chain([first_rec], records_gen),
+            start=1,
+        ):
             print(f"#{num}")
-            print(f"Delivered date: {record.delivered_date_}")
+            print(f"Delivered: {record.delivered_date_ or ''}")
             data = record.get_useful_data()
-            print(f"Application: {data.app}")
-            print(f"Title: {data.titl}")
-            print(f"Subtitle: {data.subt}")
-            print(f"Body: {data.body}", end='\n\n')
+            print(f"Bundle ID: {data.app  or ''}")
+            print(f"    Title: {data.titl or ''}")
+            print(f" Subtitle: {data.subt or ''}")
+            print(f"     Body: {data.body or ''}", end='\n\n')
 
 
 @utils.with_db_connection
