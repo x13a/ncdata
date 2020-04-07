@@ -18,6 +18,7 @@ env:
 	)
 
 install:
+	install -d $(BINDIR)/
 	ln $(VENV_BINDIR)/$(NAME) $(TARGET)
 
 uninstall:
