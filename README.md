@@ -59,7 +59,7 @@ $ ncprivacy ls-records
 
 To remove app notifications:
 ```sh
-$ ncprivacy -i ru.keepcoder.telegram rm
+$ ncprivacy -i identifier rm
 ```
 
 ## Friends
