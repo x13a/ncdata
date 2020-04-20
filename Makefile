@@ -2,27 +2,38 @@
 
 PREFIX ?= /usr/local
 BINDIR ?= $(PREFIX)/bin
+LIBDIR ?= $(PREFIX)/lib
 VENV_PREFIX := ./venv
 VENV_BINDIR := $(VENV_PREFIX)/bin
 NAME := ncprivacy
+LIB_PREFIX := $(LIBDIR)/$(NAME)
+LIB_BINDIR := $(LIB_PREFIX)/bin
 TARGET := $(BINDIR)/$(NAME)
 
 all: env
 
-env:
-	python3 -m venv --prompt $(NAME) $(VENV_PREFIX)
+define make_env
+	python3 -m venv --prompt $(NAME) $(1)
 	( \
-		source $(VENV_BINDIR)/activate; \
+		source $(2)/activate; \
 		pip install -U "."; \
 		deactivate; \
 	)
+endef
+
+env:
+	$(call make_env,$(VENV_PREFIX),$(VENV_BINDIR))
 
 install:
-	install -d $(BINDIR)/
-	ln $(VENV_BINDIR)/$(NAME) $(TARGET)
+	install -d $(LIBDIR)/ $(BINDIR)/
+	$(call make_env,$(LIB_PREFIX),$(LIB_BINDIR))
+	ln -s $(LIB_BINDIR)/$(NAME) $(TARGET)
 
 uninstall:
 	rm -f $(TARGET)
+	rm -rf $(LIB_PREFIX)/
+
+clean:
 	rm -rf $(VENV_PREFIX)/
 
 test:

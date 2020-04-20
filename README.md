@@ -4,7 +4,6 @@ View saved macOS notifications and.. remove them.
 
 ## Installation
 ```sh
-$ make
 $ make install
 ```
 or
@@ -59,7 +58,7 @@ $ ncprivacy ls-records
 
 To remove app notifications:
 ```sh
-$ ncprivacy -i identifier rm
+$ ncprivacy -i "identifier" rm
 ```
 
 ## Friends
