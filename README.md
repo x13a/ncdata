@@ -14,7 +14,7 @@ $ brew install x31a/tap/ncprivacy
 
 ## Usage
 ```text
-usage: ncprivacy [-h] [--version] [--db-path DB_PATH] [-i EXPR] [-e EXPR]
+usage: ncprivacy [-h] [-V] [--database PATH] [-i GLOB] [-e GLOB]
                  [--not-exclude-private] [--json]
                  {ls-apps,ls-records,rm,count} ...
 
@@ -24,24 +24,36 @@ positional arguments:
   {ls-apps,ls-records,rm,count}
     ls-apps             List identifier records from table `app`
     ls-records          List notification records from table `record`
-    rm                  Delete records from tables [displayed, delivered,
-                        snoozed, record, requests]
-    count               Count records from tables [displayed, delivered,
-                        snoozed, record, requests]
+    rm                  Delete records from tables [delivered, displayed,
+                        record, requests, snoozed]
+    count               Count records from tables [delivered, displayed,
+                        record, requests, snoozed]
 
 optional arguments:
   -h, --help            show this help message and exit
-  --version             show program's version number and exit
+  -V, --version         show program's version number and exit
 
-common arguments:
-  --db-path DB_PATH     Custom database path
-  -i EXPR, --include EXPR
-                        Filter by identifiers (SQL GLOB expr)
-  -e EXPR, --exclude EXPR
-                        Exclude by identifiers (SQL GLOB expr)
+base arguments:
+  --database PATH       Custom database path
+  -i GLOB, --include GLOB
+                        Filter by identifiers
+  -e GLOB, --exclude GLOB
+                        Exclude by identifiers
   --not-exclude-private
                         Do not exclude identifiers startswith underscore
   --json                JSON output
+```
+```text
+usage: ncprivacy ls-records [-h] [--start-date ISO_DATETIME]
+                            [--stop-date ISO_DATETIME] [--pattern REGEX]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --start-date ISO_DATETIME
+                        Start datetime by field `delivered_date`
+  --stop-date ISO_DATETIME
+                        Stop datetime by field `delivered_date`
+  --pattern REGEX       Search match in [title, subtitle, body]
 ```
 
 ## Example
@@ -51,9 +63,14 @@ To list identifiers:
 $ ncprivacy ls-apps
 ```
 
-To list notifications:
+To dump all notifications as json:
 ```sh
-$ ncprivacy ls-records
+$ ncprivacy --json ls-records > notifications.json
+```
+
+To list some notifications:
+```sh
+$ ncprivacy ls-records --start-date "2020-05-01"
 ```
 
 To remove app notifications:

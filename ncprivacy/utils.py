@@ -4,7 +4,8 @@ import functools
 import sqlite3
 import types
 
-OSX_TS_UNIX_DIFF = 978307200
+OSX_TS_UNIX_DIFF = (datetime.date(2001, 1, 1) -
+                    datetime.date(1970, 1, 1)).total_seconds()
 
 
 def with_db_connection(fn):
@@ -21,8 +22,16 @@ def with_db_connection(fn):
     return _wrapper
 
 
+def unix_ts_to_osx_ts(ts):
+    return ts - OSX_TS_UNIX_DIFF
+
+
 def osx_ts_to_unix_ts(ts):
     return ts + OSX_TS_UNIX_DIFF
+
+
+def dt_to_osx_ts(dt):
+    return unix_ts_to_osx_ts(dt.timestamp())
 
 
 def osx_ts_to_dt(ts):

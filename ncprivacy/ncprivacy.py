@@ -14,6 +14,7 @@ from typing import (
 from . import utils
 
 GLOB_PRIVATE = '_*'
+RECORD_FDATE = 'delivered_date'
 _F_IDENTIFIER = 'identifier'
 _F_APP_ID = 'app_id'
 
@@ -54,6 +55,7 @@ class Record(NamedTuple):
         return (None if delivered_date is None else
                 utils.osx_ts_to_dt(delivered_date))
 
+    @functools.lru_cache(maxsize=1)
     def get_useful_data(self):
         data = self.data_
         req = data.get('req', {})
@@ -65,13 +67,13 @@ class Record(NamedTuple):
         )
 
 
-NC_PRIVACY_TABLES = frozenset({
+NC_PRIVACY_TABLES = frozenset((
     Record._table_name,
     'delivered',
     'displayed',
     'requests',
     'snoozed',
-})
+))
 
 
 def get_db_path():
@@ -82,9 +84,7 @@ def get_db_path():
             check=True,
             text=True,
         ).stdout.rstrip(),
-        'com.apple.notificationcenter',
-        'db2',
-        'db',
+        'com.apple.notificationcenter/db2/db',
     ).resolve(strict=True)
 
 
@@ -97,22 +97,28 @@ def _precursor(fn):
     return _wrapper
 
 
+def _filter_glob(fname, prefix, values):
+    return " AND ".join(
+        itertools.repeat(f"{fname} {prefix} GLOB ?", len(values)))
+
+
 def _make_filter(fname, include, exclude):
     sql = ""
-    where_exprs = []
+    filters = []
     if include:
-        where_exprs.append(' AND '.join(itertools.repeat(
-            f"{fname} GLOB ?",
-            len(include),
-        )))
+        filters.append(_filter_glob(fname, "", include))
     if exclude:
-        where_exprs.append(' AND '.join(itertools.repeat(
-            f"{fname} NOT GLOB ?",
-            len(exclude),
-        )))
-    if where_exprs:
-        sql += f" WHERE {' AND '.join(where_exprs)}"
-    return sql, (*include, *exclude)
+        filters.append(_filter_glob(fname, "NOT", exclude))
+    if filters:
+        sql = f" WHERE {' AND '.join(filters)}"
+    return sql, [*include, *exclude]
+
+
+def _app_ids_in(cursor, include, exclude):
+    return "({app_ids})".format(app_ids=', '.join(
+        str(app.app_id) for app in
+        iter_apps(cursor, include=include, exclude=exclude)
+    ))
 
 
 @_precursor
@@ -124,25 +130,32 @@ def iter_apps(cursor, *, include=(), exclude=(GLOB_PRIVATE,)):
 
 
 @_precursor
-def iter_records(cursor, *, include=(), exclude=(GLOB_PRIVATE,)):
+def iter_records(cursor, *, include=(), exclude=(GLOB_PRIVATE,),
+                 start_dt=None, stop_dt=None):
     record_tname = Record._table_name
+    record_fields = Record._fields
     sql = f"""
-    SELECT {', '.join(f'{record_tname}.{field}' for field in Record._fields)} 
+    SELECT {', '.join(f"{record_tname}.{field}" for field in record_fields)} 
     FROM {record_tname}
     """
-    params = ()
+    params = []
     if include or exclude:
         app_tname = App._table_name
         filter_sql, params = _make_filter(
-            f'{app_tname}.{_F_IDENTIFIER}',
-            include,
-            exclude,
-        )
+            f"{app_tname}.{_F_IDENTIFIER}", include, exclude)
         sql += f"""
         JOIN {app_tname} 
         ON {record_tname}.{_F_APP_ID} = {app_tname}.{_F_APP_ID}
         {filter_sql}
         """
+    elif start_dt is not None or stop_dt is not None:
+        sql += " WHERE TRUE"
+    fdate = RECORD_FDATE
+    assert fdate in record_fields
+    for dt, op in ((start_dt, '>='), (stop_dt, '<=')):
+        if dt is not None:
+            sql += f" AND {record_tname}.{fdate} {op} ?"
+            params.append(utils.dt_to_osx_ts(dt))
     yield from map(Record._make, cursor.execute(sql, params))
 
 
@@ -152,17 +165,8 @@ def rm_privacy_records(cursor, *, include=(), exclude=(GLOB_PRIVATE,)):
         return 0
     sql = "DELETE FROM {table}"
     if include or exclude:
-        sql += " WHERE {f_app_id} IN ({app_ids_in})".format(
-            f_app_id=_F_APP_ID,
-            app_ids_in=', '.join(
-                str(app.app_id) for app in
-                iter_apps(
-                    cursor,
-                    include=include,
-                    exclude=exclude,
-                )
-            ),
-        )
+        sql += (f" WHERE {_F_APP_ID} IN "
+                f"{_app_ids_in(cursor, include, exclude)}")
     return sum(cursor.execute(sql.format(table=table)).rowcount for
                table in NC_PRIVACY_TABLES)
 
@@ -171,20 +175,14 @@ def rm_privacy_records(cursor, *, include=(), exclude=(GLOB_PRIVATE,)):
 def count_privacy_records(cursor, *, include=(), exclude=(GLOB_PRIVATE,)):
     if not NC_PRIVACY_TABLES:
         return 0
-    sql = "SELECT ({query}) AS result"
     has_filter = bool(include or exclude)
-    app_ids_in = ', '.join(
-        str(app.app_id) for app in
-        iter_apps(
-            cursor,
-            include=include,
-            exclude=exclude,
-        )
-    ) if has_filter else ''
+    app_ids_in = _app_ids_in(cursor, include, exclude) if has_filter else ""
+    f_app_id = _F_APP_ID
     queries = []
     for table in NC_PRIVACY_TABLES:
-        sub_sql = f"SELECT COUNT(*) FROM {table}"
+        sql = f"SELECT COUNT(*) FROM {table}"
         if has_filter:
-            sub_sql += f" WHERE {table}.{_F_APP_ID} IN ({app_ids_in})"
-        queries.append(f"({sub_sql})")
-    return cursor.execute(sql.format(query=' + '.join(queries))).fetchone()[0]
+            sql += f" WHERE {table}.{f_app_id} IN {app_ids_in}"
+        queries.append(f"({sql})")
+    return cursor.execute(
+        f"SELECT ({' + '.join(queries)}) AS result").fetchone()[0]

@@ -27,8 +27,8 @@ class NCPrivacyTestCase(unittest.TestCase):
 
     def test_records(self):
         cur = self.cur
-        cpr = ncprivacy.count_privacy_records(cur, include=['_'])
-        self.assertEqual(cpr, 0)
+        cpr1 = ncprivacy.count_privacy_records(cur, include=['_'])
+        self.assertEqual(cpr1, 0)
         cpr2 = ncprivacy.count_privacy_records(cur)
         self.assertLessEqual(len(tuple(ncprivacy.iter_records(cur))), cpr2)
         self.assertEqual(cpr2, ncprivacy.rm_privacy_records(cur))

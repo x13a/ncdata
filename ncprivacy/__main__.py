@@ -1,8 +1,10 @@
 import argparse
+import datetime
 import functools
 import itertools
 import json
 import pathlib
+import re
 
 from . import (
     __doc__ as lib_doc,
@@ -27,14 +29,13 @@ def pprint_table(rows, *, fields=()):
         max(map(len, column)) for column in
         zip(*(map(str, row) for row in width_rows))
     ]
-    sep_tmpl = ' {} '
-    column_sep = sep_tmpl.format('|')
-    delimiter_sep = sep_tmpl.format('+')
-    delimiter = '{delimiter_sep}{row}{delimiter_sep}'.format(
+    sep_tmpl = ' {sep} '
+    column_sep = sep_tmpl.format(sep='|')
+    delimiter_sep = sep_tmpl.format(sep='+')
+    delimiter = '{sep}{row}{sep}'.format(
+        sep=delimiter_sep,
         row=delimiter_sep.join(
-            '-' * widths[idx] for idx in range(len(fields or rows[0]))
-        ),
-        delimiter_sep=delimiter_sep,
+            '-' * widths[idx] for idx in range(len(fields or rows[0]))),
     )
     row_tmpl = f'{column_sep}{{row}}{column_sep}'
     print(delimiter)
@@ -43,8 +44,7 @@ def pprint_table(rows, *, fields=()):
             f'{field.upper():{widths[idx]}}'
             for idx, field in enumerate(fields)
         )))
-        if len(rows) > 1:
-            print(delimiter)
+        print(delimiter)
     for row in rows:
         print(row_tmpl.format(row=column_sep.join(
             f'{val:{widths[idx]}}' for idx, val in enumerate(row)
@@ -53,12 +53,25 @@ def pprint_table(rows, *, fields=()):
 
 
 def record_to_dict(record):
+    delivered_date = record.delivered_date
     result = record._asdict()
     result.update(
         uuid=str(record.uuid_),
         data=record.get_useful_data()._asdict(),
+        delivered_date=(None if delivered_date is None else
+                        utils.osx_ts_to_unix_ts(delivered_date)),
     )
     return result
+
+
+def records_filter(pattern):
+    def _fn(record):
+        data = record.get_useful_data()
+        for value in (data.titl, data.subt, data.body):
+            if value is not None and re.search(pattern, value) is not None:
+                return True
+        return False
+    return _fn
 
 
 @utils.with_db_connection
@@ -72,13 +85,16 @@ def ls_apps(as_json, *args, **kw):
 
 
 @utils.with_db_connection
-def ls_records(as_json, *args, **kw):
+def ls_records(as_json, pattern, *args, **kw):
     records_gen = ncprivacy.iter_records(*args, **kw)
+    if pattern is not None:
+        records_gen = filter(records_filter(pattern), records_gen)
     if as_json:
         print(json_dumps(tuple(map(record_to_dict, records_gen))))
     else:
-        first_rec = next(records_gen, None)
-        if first_rec is None:
+        try:
+            first_rec = next(records_gen)
+        except StopIteration:
             return
         print()
         for num, record in enumerate(
@@ -88,7 +104,7 @@ def ls_records(as_json, *args, **kw):
             print(f"#{num}")
             print(f"Delivered: {record.delivered_date_ or ''}")
             data = record.get_useful_data()
-            print(f"Bundle ID: {data.app  or ''}")
+            print(f" BundleId: {data.app  or ''}")
             print(f"    Title: {data.titl or ''}")
             print(f" Subtitle: {data.subt or ''}")
             print(f"     Body: {data.body or ''}", end='\n\n')
@@ -105,37 +121,42 @@ def count(as_json, *args, **kw):
     print(ncprivacy.count_privacy_records(*args, **kw))
 
 
+def dt_type(s):
+    return datetime.datetime.fromisoformat(s)
+
+
 def parse_args(*args, **kw):
-    parser = argparse.ArgumentParser(
-        prog=lib_name,
-        description=lib_doc,
-    )
+    parser = argparse.ArgumentParser(prog=lib_name, description=lib_doc)
     parser.add_argument(
+        '-V',
         '--version',
         action='version',
         version=lib_version,
     )
-    group = parser.add_argument_group('common arguments')
+    group = parser.add_argument_group('base arguments')
     group.add_argument(
-        '--db-path',
+        '--database',
         type=pathlib.Path,
+        metavar='PATH',
+        dest='db_path',
         help="Custom database path",
     )
+    glob_metavar = 'GLOB'
     group.add_argument(
         '-i',
         '--include',
         action='append',
-        metavar='EXPR',
+        metavar=glob_metavar,
         default=[],
-        help="Filter by identifiers (SQL GLOB expr)",
+        help="Filter by identifiers",
     )
     group.add_argument(
         '-e',
         '--exclude',
         action='append',
-        metavar='EXPR',
+        metavar=glob_metavar,
         default=[],
-        help="Exclude by identifiers (SQL GLOB expr)",
+        help="Exclude by identifiers",
     )
     group.add_argument(
         '--not-exclude-private',
@@ -155,12 +176,34 @@ def parse_args(*args, **kw):
         help=f"List identifier records from table "
              f"`{ncprivacy.App._table_name}`",
     ).set_defaults(fn=ls_apps)
-    subparsers.add_parser(
+    records = subparsers.add_parser(
         'ls-records',
         help=f"List notification records from table "
              f"`{ncprivacy.Record._table_name}`",
-    ).set_defaults(fn=ls_records)
-    nc_privacy_tables = ', '.join(ncprivacy.NC_PRIVACY_TABLES)
+    )
+    dt_metavar = "ISO_DATETIME"
+    fdate = ncprivacy.RECORD_FDATE
+    records.add_argument(
+        '--start-date',
+        type=dt_type,
+        metavar=dt_metavar,
+        dest='start_dt',
+        help=f"Start datetime by field `{fdate}`",
+    )
+    records.add_argument(
+        '--stop-date',
+        type=dt_type,
+        metavar=dt_metavar,
+        dest='stop_dt',
+        help=f"Stop datetime by field `{fdate}`",
+    )
+    records.add_argument(
+        '--pattern',
+        metavar='REGEX',
+        help="Search match in [title, subtitle, body]",
+    )
+    records.set_defaults(fn=ls_records)
+    nc_privacy_tables = ', '.join(sorted(ncprivacy.NC_PRIVACY_TABLES))
     subparsers.add_parser(
         'rm',
         help=f"Delete records from tables [{nc_privacy_tables}]",
