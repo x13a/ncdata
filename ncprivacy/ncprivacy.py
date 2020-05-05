@@ -97,8 +97,8 @@ def _precursor(fn):
     return _wrapper
 
 
-def _filter_glob(fname, prefix, values):
-    return " AND ".join(
+def _filter_glob(sep, fname, prefix, values):
+    return f" {sep} ".join(
         itertools.repeat(f"{fname} {prefix} GLOB ?", len(values)))
 
 
@@ -106,9 +106,9 @@ def _make_filter(fname, include, exclude):
     sql = ""
     filters = []
     if include:
-        filters.append(_filter_glob(fname, "", include))
+        filters.append(f"({_filter_glob('OR', fname, '', include)})")
     if exclude:
-        filters.append(_filter_glob(fname, "NOT", exclude))
+        filters.append(_filter_glob('AND', fname, 'NOT', exclude))
     if filters:
         sql = f" WHERE {' AND '.join(filters)}"
     return sql, [*include, *exclude]
