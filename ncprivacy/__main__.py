@@ -102,12 +102,12 @@ def ls_records(as_json, pattern, *args, **kw):
             start=1,
         ):
             print(f"#{num}")
-            print(f"Delivered: {record.delivered_date_ or ''}")
+            print(f"delivered: {record.delivered_date_ or ''}")
             data = record.get_useful_data()
-            print(f" BundleId: {data.app  or ''}")
-            print(f"    Title: {data.titl or ''}")
-            print(f" Subtitle: {data.subt or ''}")
-            print(f"     Body: {data.body or ''}", end='\n\n')
+            print(f" bundleid: {data.app  or ''}")
+            print(f"    title: {data.titl or ''}")
+            print(f" subtitle: {data.subt or ''}")
+            print(f"     body: {data.body or ''}", end='\n\n')
 
 
 @utils.with_db_connection
@@ -198,8 +198,9 @@ def parse_args(*args, **kw):
         help=f"Stop datetime by field `{fdate}`",
     )
     records.add_argument(
-        '--pattern',
+        '--search',
         metavar='REGEX',
+        dest='pattern',
         help="Search match in [title, subtitle, body]",
     )
     records.set_defaults(fn=ls_records)
