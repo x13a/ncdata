@@ -100,14 +100,14 @@ Library
 
     from ncprivacy import ncprivacy
 
-    "Use `None` cursor for one time access"
+    # Use `None` cursor for one time access
     cur = None
 
     for app in ncprivacy.iter_apps(cur):
         print(f"app_id:     {app.app_id}")
         print(f"identifier: {app.identifier}")
 
-    "Do manual connection for multiple access"
+    # Do manual connection for multiple access
     conn = sqlite3.connect(ncprivacy.get_db_path())
     cur = conn.cursor()
 
@@ -124,7 +124,7 @@ Library
             ncprivacy.rm_privacy_records(cur, include=[identifier]))
 
     cur.close()
-    "After rm_privacy_records call, don't forget to commit"
+    # After rm_privacy_records call, don't forget to commit
     conn.commit()
     conn.close()
 
