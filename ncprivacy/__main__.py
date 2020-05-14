@@ -113,7 +113,7 @@ def ls_records(as_json, pattern, *args, **kw):
 
 
 @ncprivacy._next
-@utils.with_db_connection
+@utils.with_db_connection(mode='rw')
 def rm(as_json, *args, **kw):
     result = ncprivacy.rm_privacy_records(*args, **kw)
     print(result if as_json else f"Deleted: {result}")
@@ -186,7 +186,7 @@ def parse_args(*args, **kw):
              f"`{ncprivacy.Record._table_name}`",
     )
     dt_metavar = "ISO_DATETIME"
-    fdate = ncprivacy.RECORD_FDATE
+    fdate = ncprivacy._RECORD_FDATE
     records.add_argument(
         '--start-date',
         type=dt_type,

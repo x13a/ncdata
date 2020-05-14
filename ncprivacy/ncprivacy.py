@@ -15,7 +15,7 @@ from typing import (
 from . import utils
 
 GLOB_PRIVATE = '_*'
-RECORD_FDATE = 'delivered_date'
+_RECORD_FDATE = 'delivered_date'
 _F_IDENTIFIER = 'identifier'
 _F_APP_ID = 'app_id'
 
@@ -89,11 +89,15 @@ def get_db_path():
     ).resolve(strict=True)
 
 
-def _precursor(fn):
+def _precursor(fn=None, **conn_kw):
+    if fn is None:
+        return functools.partial(_precursor, **conn_kw)
+
     @functools.wraps(fn)
     def _wrapper(cursor, *args, **kw):
         if cursor is None:
-            return utils.with_db_connection(fn)(get_db_path(), *args, **kw)
+            return utils.with_db_connection(fn, **conn_kw)(
+                get_db_path(), *args, **kw)
         return fn(cursor, *args, **kw)
     return _wrapper
 
@@ -103,7 +107,10 @@ def _next(fn):
     def _wrapper(*args, **kw):
         result = fn(*args, **kw)
         if isinstance(result, types.GeneratorType):
-            return next(result)
+            it_result = next(result, None)
+            for _ in result:  # for commit
+                pass
+            return it_result
         return result
     return _wrapper
 
@@ -161,7 +168,7 @@ def iter_records(cursor, *, include=(), exclude=(GLOB_PRIVATE,),
         """
     elif start_dt is not None or stop_dt is not None:
         sql += " WHERE TRUE"
-    fdate = RECORD_FDATE
+    fdate = _RECORD_FDATE
     assert fdate in record_fields
     for dt, op in ((start_dt, '>='), (stop_dt, '<=')):
         if dt is not None:
@@ -171,7 +178,7 @@ def iter_records(cursor, *, include=(), exclude=(GLOB_PRIVATE,),
 
 
 @_next
-@_precursor
+@_precursor(mode='rw')
 def rm_privacy_records(cursor, *, include=(), exclude=(GLOB_PRIVATE,)):
     if not NC_PRIVACY_TABLES:
         return 0

@@ -8,11 +8,14 @@ OSX_TS_UNIX_DIFF = (datetime.date(2001, 1, 1) -
                     datetime.date(1970, 1, 1)).total_seconds()
 
 
-def with_db_connection(fn):
+def with_db_connection(fn=None, *, mode=''):
+    if fn is None:
+        return functools.partial(with_db_connection, mode=mode)
+
     @functools.wraps(fn)
     def _wrapper(db_path, *args, **kw):
         with contextlib.closing(sqlite3.connect(
-            f'{db_path.resolve(strict=True).as_uri()}?mode=rw',
+            f'{db_path.resolve().as_uri()}?mode={mode or "ro"}',
             uri=True,
         )) as conn, conn, contextlib.closing(conn.cursor()) as cur:
             result = fn(cursor=cur, *args, **kw)
