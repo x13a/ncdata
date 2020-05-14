@@ -16,9 +16,10 @@ def with_db_connection(fn):
             uri=True,
         )) as conn, conn, contextlib.closing(conn.cursor()) as cur:
             result = fn(cursor=cur, *args, **kw)
-            if isinstance(result, types.GeneratorType):
-                return tuple(result)
-            return result
+            if isinstance(result, (types.GeneratorType, map, filter)):
+                yield from result
+            else:
+                yield result
     return _wrapper
 
 

@@ -5,6 +5,7 @@ import itertools
 import pathlib
 import plistlib
 import subprocess
+import types
 import uuid as _uuid
 from typing import (
     NamedTuple,
@@ -97,6 +98,16 @@ def _precursor(fn):
     return _wrapper
 
 
+def _next(fn):
+    @functools.wraps(fn)
+    def _wrapper(*args, **kw):
+        result = fn(*args, **kw)
+        if isinstance(result, types.GeneratorType):
+            return next(result)
+        return result
+    return _wrapper
+
+
 def _filter_glob(sep, fname, prefix, values):
     return f" {sep} ".join(
         itertools.repeat(f"{fname} {prefix} GLOB ?", len(values)))
@@ -124,7 +135,7 @@ def _app_ids_in(cursor, include, exclude):
 @_precursor
 def iter_apps(cursor, *, include=(), exclude=(GLOB_PRIVATE,)):
     filter_sql, params = _make_filter(_F_IDENTIFIER, include, exclude)
-    yield from map(App._make, cursor.execute(f"""
+    return map(App._make, cursor.execute(f"""
         SELECT {', '.join(App._fields)} FROM {App._table_name} {filter_sql}
         """, params))
 
@@ -156,9 +167,10 @@ def iter_records(cursor, *, include=(), exclude=(GLOB_PRIVATE,),
         if dt is not None:
             sql += f" AND {record_tname}.{fdate} {op} ?"
             params.append(utils.dt_to_osx_ts(dt))
-    yield from map(Record._make, cursor.execute(sql, params))
+    return map(Record._make, cursor.execute(sql, params))
 
 
+@_next
 @_precursor
 def rm_privacy_records(cursor, *, include=(), exclude=(GLOB_PRIVATE,)):
     if not NC_PRIVACY_TABLES:
@@ -171,6 +183,7 @@ def rm_privacy_records(cursor, *, include=(), exclude=(GLOB_PRIVATE,)):
                table in NC_PRIVACY_TABLES)
 
 
+@_next
 @_precursor
 def count_privacy_records(cursor, *, include=(), exclude=(GLOB_PRIVATE,)):
     if not NC_PRIVACY_TABLES:

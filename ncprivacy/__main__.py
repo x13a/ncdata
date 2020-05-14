@@ -74,6 +74,7 @@ def records_filter(pattern):
     return _fn
 
 
+@ncprivacy._next
 @utils.with_db_connection
 def ls_apps(as_json, *args, **kw):
     apps_gen = ncprivacy.iter_apps(*args, **kw)
@@ -84,6 +85,7 @@ def ls_apps(as_json, *args, **kw):
     )
 
 
+@ncprivacy._next
 @utils.with_db_connection
 def ls_records(as_json, pattern, *args, **kw):
     records_gen = ncprivacy.iter_records(*args, **kw)
@@ -110,12 +112,14 @@ def ls_records(as_json, pattern, *args, **kw):
             print(f"     body: {data.body or ''}", end='\n\n')
 
 
+@ncprivacy._next
 @utils.with_db_connection
 def rm(as_json, *args, **kw):
     result = ncprivacy.rm_privacy_records(*args, **kw)
     print(result if as_json else f"Deleted: {result}")
 
 
+@ncprivacy._next
 @utils.with_db_connection
 def count(as_json, *args, **kw):
     print(ncprivacy.count_privacy_records(*args, **kw))
