@@ -108,7 +108,7 @@ def _next(fn):
         result = fn(*args, **kw)
         if isinstance(result, types.GeneratorType):
             it_result = next(result, None)
-            for _ in result:  # for commit
+            for _ in result:  # for release
                 pass
             return it_result
         return result
