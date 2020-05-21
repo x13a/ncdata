@@ -3,6 +3,9 @@ ncprivacy
 
 View saved macOS notifications and.. remove them.
 
+- `Patrick Wardle <https://objective-see.com/blog/blog_0x2E.html>`_
+- `Kinga Kieczkowska <https://kieczkowska.com/2020/05/20/macos-notifications-forensics/>`_
+
 Installation
 ------------
 
@@ -100,7 +103,7 @@ Library
 
     from ncprivacy import ncprivacy
 
-    # Use `None` cursor for one time access
+    # Use `None` as cursor for one time access
     cur = None
 
     for app in ncprivacy.iter_apps(cur):
@@ -124,7 +127,7 @@ Library
             ncprivacy.rm_privacy_records(cur, include=[identifier]))
 
     cur.close()
-    # After rm_privacy_records call, don't forget to commit
+    # After `rm_privacy_records` call, don't forget to commit
     conn.commit()
     conn.close()
 
