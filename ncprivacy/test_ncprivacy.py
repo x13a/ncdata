@@ -11,10 +11,10 @@ class NCPrivacyTestCase(unittest.TestCase):
         cls.db_path = ncprivacy.get_db_path()
 
     def setUp(self):
-        source = sqlite3.connect(self.db_path)
+        src = sqlite3.connect(self.db_path)
         dest = sqlite3.connect(':memory:')
-        source.backup(dest)
-        source.close()
+        src.backup(dest)
+        src.close()
         self.cur = dest.cursor()
         self.conn = dest
 
@@ -27,9 +27,9 @@ class NCPrivacyTestCase(unittest.TestCase):
 
     def test_records(self):
         cur = self.cur
-        cpr = ncprivacy.count_privacy_records(cur)
-        self.assertLessEqual(len(tuple(ncprivacy.iter_records(cur))), cpr)
-        self.assertEqual(cpr, ncprivacy.rm_privacy_records(cur))
+        n = ncprivacy.count_privacy_records(cur)
+        self.assertLessEqual(len(tuple(ncprivacy.iter_records(cur))), n)
+        self.assertEqual(n, ncprivacy.rm_privacy_records(cur))
 
 
 if __name__ == '__main__':
