@@ -3,14 +3,14 @@ from setuptools import (
     setup,
 )
 
-import ncprivacy
+import ncdata
 
-lib_name = ncprivacy.__name__
+lib_name = ncdata.__name__
 setup(
     name=lib_name,
-    description=ncprivacy.__doc__,
-    version=ncprivacy.__version__,
-    url='https://bitbucket.org/x31a/{}'.format(lib_name),
+    description=ncdata.__doc__,
+    version=ncdata.__version__,
+    url='https://github.com/x13a/{}'.format(lib_name),
     packages=find_packages(),
     entry_points={
         'console_scripts': [
@@ -18,5 +18,5 @@ setup(
         ],
     },
     platforms=['darwin'],
-    python_requires='>=3.7',
+    python_requires='>=3.8',
 )

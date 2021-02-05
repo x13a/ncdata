@@ -1,5 +1,5 @@
-ncprivacy
-=========
+ncdata
+======
 
 View saved macOS notifications and.. remove them.
 
@@ -17,28 +17,24 @@ or
 
 .. code:: sh
 
-    $ brew tap x31a/tap https://bitbucket.org/x31a/homebrew-tap.git
-    $ brew install x31a/tap/ncprivacy
+    $ brew tap x13a/tap
+    $ brew install x13a/tap/ncdata
 
 Usage
 -----
 
 .. code:: text
 
-    usage: ncprivacy [-h] [-V] [--database PATH] [-i GLOB] [-e GLOB]
-                     [--not-exclude-private] [--json]
-                     {ls-apps,ls-records,rm,count} ...
+    usage: ncdata [-h] [-V] [--database PATH] [-i GLOB] [-e GLOB] [--not-exclude-private] [--json] {ls-apps,ls-records,rm,count} ...
 
-    MacOS Notification Center Privacy
+    MacOS Notification Center Data
 
     positional arguments:
       {ls-apps,ls-records,rm,count}
         ls-apps             List identifier records from table `app`
         ls-records          List notification records from table `record`
-        rm                  Delete records from tables [delivered, displayed,
-                            record, requests, snoozed]
-        count               Count records from tables [delivered, displayed,
-                            record, requests, snoozed]
+        rm                  Delete records from tables [delivered, displayed, record, requests, snoozed]
+        count               Count records from tables [delivered, displayed, record, requests, snoozed]
 
     optional arguments:
       -h, --help            show this help message and exit
@@ -56,8 +52,7 @@ Usage
 
 .. code:: text
 
-    usage: ncprivacy ls-records [-h] [--start-date ISO_DATETIME]
-                                [--stop-date ISO_DATETIME] [--search REGEX]
+    usage: ncdata ls-records [-h] [--start-date ISO_DATETIME] [--stop-date ISO_DATETIME] [--search REGEX]
 
     optional arguments:
       -h, --help            show this help message and exit
@@ -74,25 +69,25 @@ To list identifiers:
 
 .. code:: sh
 
-    $ ncprivacy ls-apps
+    $ ncdata ls-apps
 
 To dump all notifications as json:
 
 .. code:: sh
 
-    $ ncprivacy --json ls-records > notifications.json
+    $ ncdata --json ls-records > notifications.json
 
 To list some notifications:
 
 .. code:: sh
 
-    $ ncprivacy ls-records --start-date "2020-05-01"
+    $ ncdata ls-records --start-date "2020-05-01"
 
 To remove app notifications:
 
 .. code:: sh
 
-    $ ncprivacy -i "some.app.identifier" rm
+    $ ncdata -i "some.app.identifier" rm
 
 Library
 -------
@@ -101,20 +96,20 @@ Library
 
     import sqlite3
 
-    from ncprivacy import ncprivacy
+    import ncdata
 
     # Use `None` as cursor for one time access
     cur = None
 
-    for app in ncprivacy.iter_apps(cur):
+    for app in ncdata.iter_apps(cur):
         print(f"app_id:     {app.app_id}")
         print(f"identifier: {app.identifier}")
 
     # Do manual connection for multiple access
-    conn = sqlite3.connect(ncprivacy.get_db_path())
+    conn = sqlite3.connect(ncdata.get_db_path())
     cur = conn.cursor()
 
-    for record in ncprivacy.iter_records(cur):
+    for record in ncdata.iter_records(cur):
         print(f"delivered: {record.delivered_date_ or ''}")
         data = record.get_useful_data()
         print(f" bundleid: {data.app  or ''}")
@@ -123,11 +118,11 @@ Library
         print(f"     body: {data.body or ''}")
 
     identifier = 'some.app.identifier'
-    assert (ncprivacy.count_privacy_records(cur, include=[identifier]) ==
-            ncprivacy.rm_privacy_records(cur, include=[identifier]))
+    assert (ncdata.count_all_records(cur, include=[identifier]) ==
+            ncdata.rm_all_records(cur, include=[identifier]))
 
     cur.close()
-    # After `rm_privacy_records` call, don't forget to commit
+    # After `rm_all_records` call, don't forget to commit
     conn.commit()
     conn.close()
 

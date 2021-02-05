@@ -10,7 +10,7 @@ from . import (
     __doc__ as lib_doc,
     __name__ as lib_name,
     __version__ as lib_version,
-    ncprivacy,
+    ncdata,
     utils,
 )
 
@@ -74,21 +74,21 @@ def records_filter(pattern):
     return _fn
 
 
-@ncprivacy._next
+@ncdata._next
 @utils.with_db_connection
 def ls_apps(as_json, *args, **kw):
-    apps_gen = ncprivacy.iter_apps(*args, **kw)
+    apps_gen = ncdata.iter_apps(*args, **kw)
     (
         print(json_dumps([app._asdict() for app in apps_gen]))
         if as_json else
-        pprint_table(apps_gen, fields=ncprivacy.App._fields)
+        pprint_table(apps_gen, fields=ncdata.App._fields)
     )
 
 
-@ncprivacy._next
+@ncdata._next
 @utils.with_db_connection
 def ls_records(as_json, pattern, *args, **kw):
-    records_gen = ncprivacy.iter_records(*args, **kw)
+    records_gen = ncdata.iter_records(*args, **kw)
     if pattern is not None:
         records_gen = filter(records_filter(pattern), records_gen)
     if as_json:
@@ -112,17 +112,17 @@ def ls_records(as_json, pattern, *args, **kw):
             print(f"     body: {data.body or ''}", end='\n\n')
 
 
-@ncprivacy._next
+@ncdata._next
 @utils.with_db_connection(mode='rw')
 def rm(as_json, *args, **kw):
-    result = ncprivacy.rm_privacy_records(*args, **kw)
+    result = ncdata.rm_all_records(*args, **kw)
     print(result if as_json else f"Deleted: {result}")
 
 
-@ncprivacy._next
+@ncdata._next
 @utils.with_db_connection
 def count(as_json, *args, **kw):
-    print(ncprivacy.count_privacy_records(*args, **kw))
+    print(ncdata.count_all_records(*args, **kw))
 
 
 def dt_type(s):
@@ -178,15 +178,15 @@ def parse_args(*args, **kw):
     subparsers.add_parser(
         'ls-apps',
         help=f"List identifier records from table "
-             f"`{ncprivacy.App._table_name}`",
+             f"`{ncdata.App._table_name}`",
     ).set_defaults(fn=ls_apps)
     records = subparsers.add_parser(
         'ls-records',
         help=f"List notification records from table "
-             f"`{ncprivacy.Record._table_name}`",
+             f"`{ncdata.Record._table_name}`",
     )
     dt_metavar = "ISO_DATETIME"
-    fdate = ncprivacy._RECORD_FDATE
+    fdate = ncdata._RECORD_FDATE
     records.add_argument(
         '--start-date',
         type=dt_type,
@@ -208,14 +208,14 @@ def parse_args(*args, **kw):
         help="Search match in [title, subtitle, body]",
     )
     records.set_defaults(fn=ls_records)
-    nc_privacy_tables = ', '.join(sorted(ncprivacy.NC_PRIVACY_TABLES))
+    nc_all_tables = ', '.join(sorted(ncdata.NC_ALL_TABLES))
     subparsers.add_parser(
         'rm',
-        help=f"Delete records from tables [{nc_privacy_tables}]",
+        help=f"Delete records from tables [{nc_all_tables}]",
     ).set_defaults(fn=rm)
     subparsers.add_parser(
         'count',
-        help=f"Count records from tables [{nc_privacy_tables}]",
+        help=f"Count records from tables [{nc_all_tables}]",
     ).set_defaults(fn=count)
     return parser.parse_args(*args, **kw)
 
@@ -223,9 +223,9 @@ def parse_args(*args, **kw):
 def main(argv=None):
     nsargs = parse_args(argv)
     if nsargs.db_path is None:
-        nsargs.db_path = ncprivacy.get_db_path()
+        nsargs.db_path = ncdata.get_db_path()
     if nsargs.exclude_private:
-        nsargs.exclude.append(ncprivacy.GLOB_PRIVATE)
+        nsargs.exclude.append(ncdata.GLOB_PRIVATE)
     fn = nsargs.fn
     for arg in (
         'exclude_private',

@@ -1,14 +1,14 @@
 import sqlite3
 import unittest
 
-from ncprivacy import ncprivacy  # pycharm not main test fails with . import
+from ncdata import ncdata  # pycharm not main test fails with . import
 
 
-class NCPrivacyTestCase(unittest.TestCase):
+class NCDataTestCase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.db_path = ncprivacy.get_db_path()
+        cls.db_path = ncdata.get_db_path()
 
     def setUp(self):
         src = sqlite3.connect(self.db_path)
@@ -23,13 +23,13 @@ class NCPrivacyTestCase(unittest.TestCase):
         self.conn.close()
 
     def test_apps(self):
-        tuple(ncprivacy.iter_apps(self.cur))
+        tuple(ncdata.iter_apps(self.cur))
 
     def test_records(self):
         cur = self.cur
-        n = ncprivacy.count_privacy_records(cur)
-        self.assertLessEqual(len(tuple(ncprivacy.iter_records(cur))), n)
-        self.assertEqual(n, ncprivacy.rm_privacy_records(cur))
+        n = ncdata.count_all_records(cur)
+        self.assertLessEqual(len(tuple(ncdata.iter_records(cur))), n)
+        self.assertEqual(n, ncdata.rm_all_records(cur))
 
 
 if __name__ == '__main__':

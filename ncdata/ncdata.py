@@ -68,7 +68,7 @@ class Record(NamedTuple):
         )
 
 
-NC_PRIVACY_TABLES = frozenset((
+NC_ALL_TABLES = frozenset((
     Record._table_name,
     'delivered',
     'displayed',
@@ -179,27 +179,27 @@ def iter_records(cursor, *, include=(), exclude=(GLOB_PRIVATE,),
 
 @_next
 @_precursor(mode='rw')
-def rm_privacy_records(cursor, *, include=(), exclude=(GLOB_PRIVATE,)):
-    if not NC_PRIVACY_TABLES:
+def rm_all_records(cursor, *, include=(), exclude=(GLOB_PRIVATE,)):
+    if not NC_ALL_TABLES:
         return 0
     sql = "DELETE FROM {table}"
     if include or exclude:
         sql += (f" WHERE {_F_APP_ID} IN "
                 f"{_app_ids_in(cursor, include, exclude)}")
     return sum(cursor.execute(sql.format(table=table)).rowcount for
-               table in NC_PRIVACY_TABLES)
+               table in NC_ALL_TABLES)
 
 
 @_next
 @_precursor
-def count_privacy_records(cursor, *, include=(), exclude=(GLOB_PRIVATE,)):
-    if not NC_PRIVACY_TABLES:
+def count_all_records(cursor, *, include=(), exclude=(GLOB_PRIVATE,)):
+    if not NC_ALL_TABLES:
         return 0
     has_filter = bool(include or exclude)
     app_ids_in = _app_ids_in(cursor, include, exclude) if has_filter else ""
     f_app_id = _F_APP_ID
     queries = []
-    for table in NC_PRIVACY_TABLES:
+    for table in NC_ALL_TABLES:
         sql = f"SELECT COUNT(*) FROM {table}"
         if has_filter:
             sql += f" WHERE {table}.{f_app_id} IN {app_ids_in}"

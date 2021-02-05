@@ -1,12 +1,17 @@
 .PHONY: env
 
-PREFIX ?= /usr/local
-BINDIR ?= $(PREFIX)/bin
-LIBDIR ?= $(PREFIX)/lib
-NAME := ncprivacy
-VENV_DIR := ./venv
-DEST_LIB := $(LIBDIR)/$(NAME)
-DEST := $(BINDIR)/$(NAME)
+NAME        := ncdata
+
+prefix      ?= /usr/local
+exec_prefix ?= $(prefix)
+bindir      ?= $(exec_prefix)/bin
+libdir      ?= $(exec_prefix)/lib
+
+venvdir     := ./venv
+bindestdir  := $(DESTDIR)$(bindir)
+libdestdir  := $(DESTDIR)$(libdir)
+bindest     := $(bindestdir)/$(NAME)
+libdest     := $(libdestdir)/$(NAME)
 
 all: env
 
@@ -20,19 +25,21 @@ define make_env
 endef
 
 env:
-	$(call make_env,$(VENV_DIR))
+	$(call make_env,$(venvdir))
 
-install:
-	install -d $(LIBDIR)/ $(BINDIR)/
-	$(call make_env,$(DEST_LIB))
-	ln -s $(DEST_LIB)/bin/$(NAME) $(DEST)
+installdirs:
+	install -d $(libdestdir)/ $(bindestdir)/
+
+install: installdirs
+	$(call make_env,$(libdest))
+	ln -s $(libdest)/bin/$(NAME) $(bindest)
 
 uninstall:
-	rm -f $(DEST)
-	rm -rf $(DEST_LIB)/
+	rm -f $(bindest)
+	rm -rf $(libdest)/
 
 clean:
-	rm -rf $(VENV_DIR)/
+	rm -rf $(venvdir)/
 
 test:
 	python3 -m unittest
