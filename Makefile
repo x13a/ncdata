@@ -1,4 +1,4 @@
-.PHONY: env
+.PHONY: venv
 
 NAME        := ncdata
 
@@ -13,9 +13,9 @@ libdestdir  := $(DESTDIR)$(libdir)
 bindest     := $(bindestdir)/$(NAME)
 libdest     := $(libdestdir)/$(NAME)
 
-all: env
+all: venv
 
-define make_env
+define make_venv
 	python3 -m venv --prompt $(NAME) $(1)
 	( \
 		source $(1)/bin/activate; \
@@ -24,14 +24,14 @@ define make_env
 	)
 endef
 
-env:
-	$(call make_env,$(venvdir))
+venv:
+	$(call make_venv,$(venvdir))
 
 installdirs:
 	install -d $(libdestdir)/ $(bindestdir)/
 
 install: installdirs
-	$(call make_env,$(libdest))
+	$(call make_venv,$(libdest))
 	ln -s $(libdest)/bin/$(NAME) $(bindest)
 
 uninstall:
