@@ -6,6 +6,12 @@ View saved macOS notifications and.. remove them.
 - `Patrick Wardle <https://objective-see.com/blog/blog_0x2E.html>`_
 - `Kinga Kieczkowska <https://kieczkowska.com/2020/05/20/macos-notifications-forensics/>`_
 
+.. code:: text
+
+    Starting from macOS Big Sur, Apple stopped to save years of notifications
+    and now the database is limited to one week, after that period notifications
+    are automatically deleted.
+
 Installation
 ------------
 
