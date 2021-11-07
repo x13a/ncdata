@@ -19,13 +19,6 @@ Installation
 
     $ make install
 
-or
-
-.. code:: sh
-
-    $ brew tap x13a/tap
-    $ brew install x13a/tap/ncdata
-
 Usage
 -----
 
